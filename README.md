@@ -1,2 +1,6 @@
-# visual-verge
-A cutting-edge hybrid semantic search platform powered by generative AI to decode and understand visual content.
+# VisualVerge
+VisualVerge is an innovative hybrid semantic search platform, designed to advance the frontier of visual search capabilities. By seamlessly integrating the power of generative AI with sophisticated semantic analysis, VisualVerge deciphers and interprets the intricate details of images, delivering comprehensive insights and explanations. This state-of-the-art platform empowers users to explore and understand visual content on a deeper level, transforming how we interact with and interpret imagery.
+
+The name "VisualVerge" perfectly encapsulates the essence of this pioneering project. "Visual" emphasizes the platform's focus on interpreting and understanding visual data. "Verge" signifies the cutting-edge nature of the technology, standing on the brink of new discoveries and advancements in semantic search. Together, "VisualVerge" represents a blend of innovation and vision, highlighting the platform's ability to push the boundaries of what is possible in visual and semantic search.
+
+With VisualVerge, users are equipped with a powerful tool to traverse the landscape of images, gaining valuable insights and understanding in an unprecedented manner. Ready to see the future of search? VisualVerge is at the edge of innovation, leading the way. 
