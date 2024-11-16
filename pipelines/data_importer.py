@@ -1,27 +1,25 @@
-import os
 import json
-from itertools import islice
-from multiprocessing import Pool, cpu_count
-
-import numpy as np
-import torch
 from transformers import CLIPProcessor, CLIPModel
 from PIL import Image
 import requests
+import torch
+import numpy as np
 from qdrant_client import QdrantClient
-from qdrant_client.http.models import VectorParams
+from qdrant_client.http.models import Distance, VectorParams, PointStruct
 
 
 def load_data():
-    # Load product data
+    """Load and preprocess product data."""
     try:
-        with open("../data/products_1.json") as file:
+        with open("../data/basic_data.json") as file:
             data = json.load(file)
         print("Data loaded successfully!")
     except FileNotFoundError:
         print("File not found. Please check the path.")
+        return []
     except json.JSONDecodeError:
         print("Error decoding JSON. Please check the file format.")
+        return []
 
     # Preprocess data
     processed_data = [
@@ -39,102 +37,159 @@ def load_data():
     return processed_data
 
 
-def chunk_data(data, chunk_size):
-    """Yield successive chunks from the dataset."""
-    it = iter(data)
-    while chunk := list(islice(it, chunk_size)):
-        yield chunk
-
-
 def encode_text(text, processor, model):
+    """Encode text using CLIP model."""
     inputs = processor(text=text, return_tensors="pt", padding=True, truncation=True)
-    return model.get_text_features(**inputs).detach().numpy()
+    with torch.no_grad():
+        output = model.get_text_features(**inputs)
+    return output.numpy()
 
 
 def encode_image(image_url, processor, model):
-    response = requests.get(image_url, stream=True)
-    image = Image.open(response.raw).convert("RGB")
-    inputs = processor(images=image, return_tensors="pt", padding=True)
-    return model.get_image_features(**inputs).detach().numpy()
+    """Encode image using CLIP model."""
+    try:
+        response = requests.get(image_url, stream=True)
+        image = Image.open(response.raw).convert("RGB")
+        inputs = processor(images=image, return_tensors="pt", padding=True)
+        with torch.no_grad():
+            output = model.get_image_features(**inputs)
+        return output.numpy()
+    except Exception as e:
+        print(f"Error processing image {image_url}: {str(e)}")
+        return None
 
 
-def create_collection(collection_name):
-    # Connect to Qdrant
-    qdrant = QdrantClient("http://localhost:6333")
+def create_collection(client: QdrantClient, collection_name: str):
+    """Create or recreate Qdrant collection."""
+    # Delete existing collection if it exists
+    if client.collection_exists(collection_name):
+        client.delete_collection(collection_name)
+        print(f"Existing collection '{collection_name}' deleted.")
 
-    if not qdrant.collection_exists(collection_name):
-        qdrant.create_collection(
-            collection_name=collection_name,
-            vectors_config={
-                "image_vector": VectorParams(size=512, distance="Cosine"),
-                "text_vector": VectorParams(size=512, distance="Cosine"),
-            },
+    # Create new collection
+    client.create_collection(
+        collection_name=collection_name,
+        vectors_config=VectorParams(
+            size=512,  # CLIP embedding size
+            distance=Distance.COSINE
         )
-        print(f"Collection '{collection_name}' created.")
-    else:
-        print(f"Collection '{collection_name}' already exists.")
-    return qdrant
+    )
+    print(f"Collection '{collection_name}' created.")
 
 
-def process_chunk(chunk, collection_name, qdrant_url, processor, model):
-    """Process a single chunk and insert points into Qdrant."""
-    for product in chunk:
-        text_embedding = encode_text(f"{product['name']} {product['description']}", processor, model)
-        for image_url in product["images"]:
-            # Encode image
-            image_embedding = encode_image(image_url, processor, model)
+def process_products(products, collection_name: str, batch_size: int = 50):
+    """Process products and insert into Qdrant."""
+    # Initialize Qdrant client
+    client = QdrantClient("localhost", port=6333)
+    
+    # Initialize CLIP model and processor
+    model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
+    processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
+    
+    # Create collection
+    create_collection(client, collection_name)
+    
+    # Process products in batches
+    points = []
+    processed_count = 0
+    
+    for product in products:
+        # Encode text
+        text = f"{product['name']} {product['description']}"
+        text_vector = encode_text(text, processor, model)
+        
+        # Process each image for the product
+        for idx, image_url in enumerate(product["images"]):
+            image_vector = encode_image(image_url, processor, model)
+            if image_vector is None:
+                continue
             
-            # Prepare data for insertion
-            point = {
-                "id": int(product["id"]),  # Ensure the ID is an integer
-                "vectors": {
-                    "image_vector": image_embedding.tolist(),
-                    "text_vector": text_embedding.tolist()
-                },
-                "payload": {
+            # Create unique ID for each image-text pair
+            point_id = int(f"{product['id']}{idx:03d}")
+            
+            # Average text and image vectors
+            combined_vector = np.mean([text_vector[0], image_vector[0]], axis=0)
+            
+            # Create point
+            point = PointStruct(
+                id=point_id,
+                vector=combined_vector.tolist(),
+                payload={
+                    "product_id": product["id"],
                     "name": product["name"],
+                    "description": product["description"],
                     "link": product["link"],
-                    "description": product["description"]
+                    "image_url": image_url
                 }
-            }
-            
-            # Insert point using raw HTTP request
-            response = requests.put(
-                f"{qdrant_url}/collections/{collection_name}/points",
-                json={"points": [point]}
             )
-            if response.status_code == 200:
-                print(f"Inserted point for product ID {product['id']}.")
-            else:
-                print(f"Failed to insert point for product ID {product['id']}: {response.text}")
+            points.append(point)
+            
+            # Insert batch when reaching batch_size
+            if len(points) >= batch_size:
+                try:
+                    client.upsert(
+                        collection_name=collection_name,
+                        points=points
+                    )
+                    processed_count += len(points)
+                    print(f"Inserted {processed_count} points.")
+                    points = []
+                except Exception as e:
+                    print(f"Error inserting batch: {str(e)}")
+                    points = []
+    
+    # Insert remaining points
+    if points:
+        try:
+            client.upsert(
+                collection_name=collection_name,
+                points=points
+            )
+            processed_count += len(points)
+            print(f"Inserted final batch. Total points inserted: {processed_count}")
+        except Exception as e:
+            print(f"Error inserting final batch: {str(e)}")
+
+
+def search_products(query_text: str, collection_name: str, limit: int = 5):
+    """Search products using text query."""
+    client = QdrantClient("localhost", port=6333)
+    model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
+    processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
+    
+    # Encode query text
+    query_vector = encode_text(query_text, processor, model)[0]
+    
+    # Search in Qdrant
+    results = client.search(
+        collection_name=collection_name,
+        query_vector=query_vector.tolist(),
+        limit=limit
+    )
+    
+    return results
 
 
 def main():
     collection_name = "products"
-    qdrant_url = "http://localhost:6333"
+    batch_size = 50
     
-    # Load data and initialize model and processor
-    processed_data = load_data()
-    model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
-    model.config.text_config.max_position_embeddings = 2048
-    processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
-
-    # Create the collection
-    create_collection(collection_name)
-
-    # Define chunk size
-    chunk_size = 100  # Adjust based on dataset size and available memory
-
-    # Create a list of chunks
-    data_chunks = list(chunk_data(processed_data, chunk_size))
-
-    # Set up multiprocessing pool
-    num_workers = min(cpu_count(), len(data_chunks))  # Use all available CPUs
-    with Pool(num_workers) as pool:
-        pool.starmap(
-            process_chunk,
-            [(chunk, collection_name, qdrant_url, processor, model) for chunk in data_chunks],
-        )
+    # Load data
+    print("Loading data...")
+    products = load_data()
+    print(f"Loaded {len(products)} products.")
+    
+    # Process products and insert into Qdrant
+    print("Processing products...")
+    process_products(products, collection_name, batch_size)
+    
+    # Test search
+    print("\nTesting search functionality...")
+    query = "blue dress"
+    results = search_products(query, collection_name)
+    print(f"\nSearch results for '{query}':")
+    for idx, result in enumerate(results, 1):
+        print(f"{idx}. {result.payload['name']} (Score: {result.score:.3f})")
 
 
 if __name__ == "__main__":
