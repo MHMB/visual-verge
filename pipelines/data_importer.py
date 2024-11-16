@@ -1,6 +1,7 @@
 import os
 import json
 from itertools import islice
+from multiprocessing import Pool, cpu_count
 
 import numpy as np
 import torch
@@ -8,7 +9,7 @@ from transformers import CLIPProcessor, CLIPModel
 from PIL import Image
 import requests
 from qdrant_client import QdrantClient
-from qdrant_client.http.models import VectorParams, PointStruct
+from qdrant_client.http.models import VectorParams
 
 
 def load_data():
@@ -35,11 +36,7 @@ def load_data():
         if product.get("images")
     ]
 
-    # Initialize CLIP model and processor
-    model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
-    model.config.text_config.max_position_embeddings = 2048
-    processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
-    return processed_data, model, processor
+    return processed_data
 
 
 def chunk_data(data, chunk_size):
@@ -79,9 +76,9 @@ def create_collection(collection_name):
     return qdrant
 
 
-def insert_data(qdrant_client, processed_data, collection_name, model, processor):
-    qdrant_url = "http://localhost:6333"
-    for product in processed_data:
+def process_chunk(chunk, collection_name, qdrant_url, processor, model):
+    """Process a single chunk and insert points into Qdrant."""
+    for product in chunk:
         text_embedding = encode_text(f"{product['name']} {product['description']}", processor, model)
         for image_url in product["images"]:
             # Encode image
@@ -107,29 +104,36 @@ def insert_data(qdrant_client, processed_data, collection_name, model, processor
                 json={"points": [point]}
             )
             if response.status_code == 200:
-                # print(f"Inserted point for product ID {product['id']}.")
-                pass
+                print(f"Inserted point for product ID {product['id']}.")
             else:
                 print(f"Failed to insert point for product ID {product['id']}: {response.text}")
 
 
 def main():
     collection_name = "products"
-    processed_data, model, processor = load_data()
-    q_client = create_collection(collection_name)
+    qdrant_url = "http://localhost:6333"
+    
+    # Load data and initialize model and processor
+    processed_data = load_data()
+    model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
+    model.config.text_config.max_position_embeddings = 2048
+    processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
+
+    # Create the collection
+    create_collection(collection_name)
 
     # Define chunk size
-    chunk_size = 100  # Adjust based on available memory and dataset size
+    chunk_size = 100  # Adjust based on dataset size and available memory
 
-    # Process data in chunks
-    for chunk in chunk_data(processed_data, chunk_size):
-        print(f"Processing chunk of size {len(chunk)}")
-        insert_data(
-            qdrant_client=q_client,
-            processed_data=chunk,
-            collection_name=collection_name,
-            model=model,
-            processor=processor
+    # Create a list of chunks
+    data_chunks = list(chunk_data(processed_data, chunk_size))
+
+    # Set up multiprocessing pool
+    num_workers = min(cpu_count(), len(data_chunks))  # Use all available CPUs
+    with Pool(num_workers) as pool:
+        pool.starmap(
+            process_chunk,
+            [(chunk, collection_name, qdrant_url, processor, model) for chunk in data_chunks],
         )
 
 
