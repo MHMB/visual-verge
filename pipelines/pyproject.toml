@@ -25,6 +25,9 @@ qdrant-client = "^1.12.1"
 pysocks = "^1.7.1"
 
 
+[tool.poetry.group.dev.dependencies]
+black = "^24.10.0"
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
