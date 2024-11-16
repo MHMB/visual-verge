@@ -1,5 +1,6 @@
 import os
 import json
+from itertools import islice
 
 import numpy as np
 import torch
@@ -7,7 +8,7 @@ from transformers import CLIPProcessor, CLIPModel
 from PIL import Image
 import requests
 from qdrant_client import QdrantClient
-from qdrant_client.http.models import CollectionInfo, VectorParams, PointStruct
+from qdrant_client.http.models import VectorParams, PointStruct
 
 
 def load_data():
@@ -41,6 +42,13 @@ def load_data():
     return processed_data, model, processor
 
 
+def chunk_data(data, chunk_size):
+    """Yield successive chunks from the dataset."""
+    it = iter(data)
+    while chunk := list(islice(it, chunk_size)):
+        yield chunk
+
+
 def encode_text(text, processor, model):
     inputs = processor(text=text, return_tensors="pt", padding=True, truncation=True)
     return model.get_text_features(**inputs).detach().numpy()
@@ -72,7 +80,6 @@ def create_collection(collection_name):
 
 
 def insert_data(qdrant_client, processed_data, collection_name, model, processor):
-    i = 0
     qdrant_url = "http://localhost:6333"
     for product in processed_data:
         text_embedding = encode_text(f"{product['name']} {product['description']}", processor, model)
@@ -100,23 +107,30 @@ def insert_data(qdrant_client, processed_data, collection_name, model, processor
                 json={"points": [point]}
             )
             if response.status_code == 200:
-                print(f"Inserted point for product ID {product['id']}.")
+                # print(f"Inserted point for product ID {product['id']}.")
+                pass
             else:
                 print(f"Failed to insert point for product ID {product['id']}: {response.text}")
-        i += 1
 
 
 def main():
     collection_name = "products"
     processed_data, model, processor = load_data()
     q_client = create_collection(collection_name)
-    insert_data(
-        qdrant_client=q_client,
-        processed_data=processed_data,
-        collection_name=collection_name,
-        model=model,
-        processor=processor
-    )
+
+    # Define chunk size
+    chunk_size = 100  # Adjust based on available memory and dataset size
+
+    # Process data in chunks
+    for chunk in chunk_data(processed_data, chunk_size):
+        print(f"Processing chunk of size {len(chunk)}")
+        insert_data(
+            qdrant_client=q_client,
+            processed_data=chunk,
+            collection_name=collection_name,
+            model=model,
+            processor=processor
+        )
 
 
 if __name__ == "__main__":
