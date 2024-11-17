@@ -1,1 +1,97 @@
-<p>search works!</p>
+<!-- src/app/components/search/search.component.html -->
+
+<div class="search-container">
+  <form [formGroup]="searchForm">
+    <!-- Search Bar -->
+    <mat-form-field class="search-bar" appearance="outline">
+      <mat-label>Search products</mat-label>
+      <input matInput formControlName="text_query" placeholder="Enter your search query">
+      <button mat-icon-button matSuffix>
+        <mat-icon>search</mat-icon>
+      </button>
+    </mat-form-field>
+
+    <!-- Filters Panel -->
+    <mat-expansion-panel [(expanded)]="isFiltersPanelExpanded">
+      <mat-expansion-panel-header>
+        <mat-panel-title>
+          Filters
+        </mat-panel-title>
+      </mat-expansion-panel-header>
+
+      <div class="filters-container" formGroupName="filters">
+        <!-- Price Range -->
+        <div formGroupName="price" class="price-range">
+          <mat-form-field appearance="outline">
+            <mat-label>Min Price ($)</mat-label>
+            <input matInput type="number" formControlName="min_price">
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Max Price ($)</mat-label>
+            <input matInput type="number" formControlName="max_price">
+          </mat-form-field>
+        </div>
+
+        <!-- Multiple Selection Filters -->
+        <mat-form-field appearance="outline">
+          <mat-label>Regions</mat-label>
+          <mat-select formControlName="region" multiple>
+            <mat-option *ngFor="let region of availableRegions" [value]="region">
+              {{region}}
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Sizes</mat-label>
+          <mat-select formControlName="sizes" multiple>
+            <mat-option *ngFor="let size of availableSizes" [value]="size">
+              {{size}}
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Colors</mat-label>
+          <mat-select formControlName="color_names" multiple>
+            <mat-option *ngFor="let color of availableColors" [value]="color">
+              {{color}}
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Gender</mat-label>
+          <mat-select formControlName="gender_name" multiple>
+            <mat-option *ngFor="let gender of availableGenders" [value]="gender">
+              {{gender}}
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Categories</mat-label>
+          <mat-select formControlName="category_name" multiple>
+            <mat-option *ngFor="let category of availableCategories" [value]="category">
+              {{category}}
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Brands</mat-label>
+          <mat-select formControlName="brand_name" multiple>
+            <mat-option *ngFor="let brand of availableBrands" [value]="brand">
+              {{brand}}
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <button mat-stroked-button color="warn" (click)="clearFilters()">
+          Clear All Filters
+        </button>
+      </div>
+    </mat-expansion-panel>
+  </form>
+</div>
