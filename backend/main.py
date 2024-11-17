@@ -38,26 +38,27 @@ class Query(BaseModel):
     filters: Optional[FilterParams] = Field(default=None, description="Optional filters")
     limit: Optional[int] = Field(default=10, description="Maximum number of results to return", ge=1, le=100)
 
-class SearchResult(BaseModel):
-    product_id: int
-    name: str
-    description: str
-    image_url: str
-    link: str
-    score: float
-    current_price: float
-    currency: str
-    color_names: List[str]
-    sizes: List[str]
-    region: str
-    brand_name: str
-    category_name: str
-    gender_name: str
+class SearchResult(BaseModel): 
+    product_id: int 
+    name: str 
+    description: Optional[str] = None 
+    image_url: str 
+    link: Optional[str] = None 
+    score: float 
+    current_price: Optional[float] = None 
+    currency: Optional[str] = None 
+    color_names: Optional[List[str]] = None 
+    sizes: Optional[List[str]] = None 
+    region: Optional[str] = None 
+    brand_name: Optional[str] = None 
+    category_name: Optional[str] = None 
+    gender_name: Optional[str] = None
+
 
 class SemanticSearchService:
     def __init__(
         self,
-        collection_name: str = "products",
+        collection_name: str = "products_3",
         qdrant_host: str = "localhost",
         qdrant_port: int = 6333,
         model_name: str = "openai/clip-vit-base-patch32",
@@ -160,7 +161,6 @@ class SemanticSearchService:
             score_threshold=score_threshold,
             query_filter=qdrant_filter
         )
-        
         return [
             SearchResult(
                 product_id=result.payload["product_id"],
