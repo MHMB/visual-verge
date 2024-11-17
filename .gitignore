@@ -164,3 +164,7 @@ cython_debug/
 qdrant_storage/
 
 .vscode/
+
+node_modules/
+
+.angular/
