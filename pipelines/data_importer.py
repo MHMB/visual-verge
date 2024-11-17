@@ -73,7 +73,8 @@ def load_data(file_path):
     # Explode the images column to create a new row for each image
     df['images'] = df['images'].apply(lambda x: x if isinstance(x, list) else [])
     df = df.explode('images').reset_index(drop=True)
-
+    df.dropna(subset=['images'], inplace=True)
+    
     return df
 
 
@@ -172,33 +173,39 @@ def process_products(df: pd.DataFrame, collection_name: str, batch_size: int = 5
     # Process products in batches
     points = []
     processed_count = 0
-    
+    failed_count = 0
+
     for row in df.itertuples(index=False):
-        # Encode text
-        text = f"{row.name} {row.description}"
-        text_vector = encode_text(text, processor, model)
+        try:
+            # Encode text
+            text = f"{row.name} {row.description}"
+            text_vector = encode_text(text, processor, model)
 
-        image_vector = encode_image(row.images, processor, model)
-        if image_vector is None:
+            image_vector = encode_image(row.images, processor, model)
+            if image_vector is None:
+                continue
+            point_id = int(f"{row.id}")
+
+            combined_vector = np.mean([text_vector[0], image_vector[0]], axis=0)
+
+            point = PointStruct( id=point_id, vector=combined_vector.tolist(), payload={ "product_id": row.id, "name": row.name, "description": row.description, "material": row.material, "rating": row.rating, "code": row.code, "brand_id": row.brand_id, "brand_name": row.brand_name, "category_id": row.category_id, "category_name": row.category_name, "gender_id": row.gender_id, "gender_name": row.gender_name, "shop_id": row.shop_id, "shop_name": row.shop_name, "link": row.link, "status": row.status, "colors": row.colors, "sizes": row.sizes, "region": row.region, "currency": row.currency, "current_price": row.current_price, "old_price": row.old_price, "off_percent": row.off_percent, "update_date": row.update_date, "color_names": row.color_names, "image_url": row.images } ) 
+            points.append(point)
+            if len(points) >= batch_size:
+                    try:
+                        client.upsert(
+                            collection_name=collection_name,
+                            points=points
+                        )
+                        processed_count += len(points)
+                        print(f"Inserted {processed_count} points.")
+                        points = []
+                    except Exception as e:
+                        print(f"Error inserting batch: {str(e)}")
+                        points = []
+        except Exception as e:
+            print(f"Error processing product {row['id']}: {str(e)}")
+            failed_count += 1
             continue
-        point_id = int(f"{row.id}")
-
-        combined_vector = np.mean([text_vector[0], image_vector[0]], axis=0)
-
-        point = PointStruct( id=point_id, vector=combined_vector.tolist(), payload={ "product_id": row.id, "name": row.name, "description": row.description, "material": row.material, "rating": row.rating, "code": row.code, "brand_id": row.brand_id, "brand_name": row.brand_name, "category_id": row.category_id, "category_name": row.category_name, "gender_id": row.gender_id, "gender_name": row.gender_name, "shop_id": row.shop_id, "shop_name": row.shop_name, "link": row.link, "status": row.status, "colors": row.colors, "sizes": row.sizes, "region": row.region, "currency": row.currency, "current_price": row.current_price, "old_price": row.old_price, "off_percent": row.off_percent, "update_date": row.update_date, "color_names": row.color_names, "image_url": row.images } ) 
-        points.append(point)
-        if len(points) >= batch_size:
-                try:
-                    client.upsert(
-                        collection_name=collection_name,
-                        points=points
-                    )
-                    processed_count += len(points)
-                    print(f"Inserted {processed_count} points.")
-                    points = []
-                except Exception as e:
-                    print(f"Error inserting batch: {str(e)}")
-                    points = []
     
     # Insert remaining points
     if points:
