@@ -10,7 +10,7 @@ import {NavBarComponent} from './nav-bar/nav-bar.component'
         <img class="brand-logo" src="/assets/logo.svg" alt="logo" aria-hidden="true" />
       </header>
       <section class="content">
-        <nav-bar></nav-bar>
+        <app-nav-bar></app-nav-bar>
       </section>
     </main>
   `,

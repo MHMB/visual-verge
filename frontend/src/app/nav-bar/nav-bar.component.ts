@@ -1,15 +1,22 @@
 import { Component } from '@angular/core';
-
+import {CommonModule} from '@angular/common';
+import {ProductLocationComponent} from "../product-location/product-location.component";
 @Component({
   selector: 'app-nav-bar',
   standalone: true,
-  imports: [],
+  imports: [CommonModule, ProductLocationComponent],
   template: `
-    <p>
-      nav-bar works!
-    </p>
+    <section>
+      <form>
+        <input type="text" placeholder="Search for product!" />
+        <button class="primary" type="button">Search</button>
+      </form>
+    </section>
+    <section class="results">
+      <app-product-location></app-product-location>
+    </section>
   `,
-  styles: ``
+  styleUrls: ['./nav-bar.component.css']
 })
 export class NavBarComponent {
 
