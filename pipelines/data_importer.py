@@ -74,7 +74,7 @@ def load_data(file_path):
     df['images'] = df['images'].apply(lambda x: x if isinstance(x, list) else [])
     df = df.explode('images').reset_index(drop=True)
     df.dropna(subset=['images'], inplace=True)
-    
+
     return df
 
 
@@ -174,8 +174,10 @@ def process_products(df: pd.DataFrame, collection_name: str, batch_size: int = 5
     points = []
     processed_count = 0
     failed_count = 0
+    row_count = 0
 
     for row in df.itertuples(index=False):
+        row_count += 1
         try:
             # Encode text
             text = f"{row.name} {row.description}"
@@ -198,6 +200,7 @@ def process_products(df: pd.DataFrame, collection_name: str, batch_size: int = 5
                         )
                         processed_count += len(points)
                         print(f"Inserted {processed_count} points.")
+                        print(f"Processed {row_count} rows")
                         points = []
                     except Exception as e:
                         print(f"Error inserting batch: {str(e)}")
@@ -240,8 +243,8 @@ def search_products(query_text: str, collection_name: str, limit: int = 5):
 
 
 def main():
-    collection_name = "products_2"
-    batch_size = 100
+    collection_name = "products_3"
+    batch_size = 2
     
     # Load data
     print("Loading data...")
