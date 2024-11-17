@@ -7,34 +7,52 @@ import numpy as np
 from qdrant_client import QdrantClient
 from qdrant_client.http.models import Distance, VectorParams, PointStruct
 
+import pandas as pd
+import json
+from sklearn.preprocessing import MultiLabelBinarizer
+from sklearn.impute import SimpleImputer
+from datetime import datetime
+from webcolors import hex_to_name
 
-def load_data():
-    """Load and preprocess product data."""
-    try:
-        with open("../data/basic_data.json") as file:
-            data = json.load(file)
-        print("Data loaded successfully!")
-    except FileNotFoundError:
-        print("File not found. Please check the path.")
-        return []
-    except json.JSONDecodeError:
-        print("Error decoding JSON. Please check the file format.")
-        return []
+def convert_rgb_to_names(colors):
+        color_names = []
+        for color in colors:
+            try:
+                # Convert RGB to the closest color name
+                color_names.append(hex_to_name(color))
+            except ValueError:
+                color_names.append("Unknown")  # Handle unmapped colors
+        return color_names
 
-    # Preprocess data
-    processed_data = [
-        {
-            "id": product["id"],
-            "name": product["name"],
-            "description": product["description"] or "",
-            "images": product["images"],
-            "link": product["link"],
-        }
-        for product in data
-        if product.get("images")
-    ]
 
-    return processed_data
+def load_data(file_path):
+    # Load JSON data
+    with open(file_path, 'r') as file:
+        data = json.load(file)
+
+    # Convert to DataFrame
+    df = pd.DataFrame(data)
+
+    # Convert RGB colors to human-readable names
+    def convert_rgb_to_names(colors):
+        color_names = []
+        for color in colors:
+            try:
+                # Convert RGB to the closest color name
+                color_names.append(hex_to_name(color))
+            except ValueError:
+                color_names.append("Unknown")  # Handle unmapped colors
+        return color_names
+
+    # Add a new column for human-readable color names
+    df['color_names'] = df['colors'].apply(lambda x: convert_rgb_to_names(x if isinstance(x, list) else []))
+
+    # Explode the images column to create a new row for each image
+    df['images'] = df['images'].apply(lambda x: x if isinstance(x, list) else [])
+    df = df.explode('images').reset_index(drop=True)
+
+    return df
+
 
 
 def encode_text(text, processor, model):
@@ -172,24 +190,24 @@ def search_products(query_text: str, collection_name: str, limit: int = 5):
 
 def main():
     collection_name = "products"
-    batch_size = 50
+    batch_size = 100
     
     # Load data
     print("Loading data...")
-    products = load_data()
+    products = load_data("../data/products_1.json")
     print(f"Loaded {len(products)} products.")
     
     # Process products and insert into Qdrant
     print("Processing products...")
     process_products(products, collection_name, batch_size)
     
-    # Test search
-    print("\nTesting search functionality...")
-    query = "blue dress"
-    results = search_products(query, collection_name)
-    print(f"\nSearch results for '{query}':")
-    for idx, result in enumerate(results, 1):
-        print(f"{idx}. {result.payload['name']} (Score: {result.score:.3f})")
+    # # Test search
+    # print("\nTesting search functionality...")
+    # query = "blue dress"
+    # results = search_products(query, collection_name)
+    # print(f"\nSearch results for '{query}':")
+    # for idx, result in enumerate(results, 1):
+    #     print(f"{idx}. {result.payload['name']} (Score: {result.score:.3f})")
 
 
 if __name__ == "__main__":
