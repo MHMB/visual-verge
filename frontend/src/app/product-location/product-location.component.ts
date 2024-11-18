@@ -1,10 +1,13 @@
 import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ProductLocation } from '../product-location';
+import {RouterModule} from '@angular/router';
+
+
 @Component({
   selector: 'app-product-location',
   standalone: true,
-  imports: [],
+  imports: [CommonModule, RouterModule],
   template: `
     <section class="listing">
       <img
@@ -15,6 +18,7 @@ import { ProductLocation } from '../product-location';
       />
       <h2 class="listing-heading">{{ productLocation.name }}</h2>
       <p class="listing-location">{{ productLocation.id }}, {{ productLocation.region }}</p>
+      <a [routerLink]="['/details', productLocation.id]">details ...</a>
     </section>
   `,
   styleUrls: ['./product-location.component.css'],
