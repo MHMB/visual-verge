@@ -5,50 +5,19 @@ import { ProductLocation } from './product-location';
   providedIn: 'root'
 })
 export class ProductsService {
-  readonly baseUrl = 'https://angular.dev/assets/images/tutorials/common';
-  protected productLocationList: ProductLocation[] = [
-    {
-      id: "9999",
-      name: 'Test Home',
-      image: "https://media.6media.me/media/catalog/product/cache/51d09e6ba6f1fb68e23a90a2eb71ff17/a/t/atlanticus_black_001-002-043_alt3_sq_nt_4800x4800.jpg",
-      region: "SAUDI",
-      shop_name: "6thstreet",
-      current_price: 100,
-      off_percent: 3,
-    },
-    {
-      id: "2089163",
-      name: 'Lydia Millen Cutwork and Embroidery Bandeau Dress',
-      image: "https://media.6media.me/media/catalog/product/cache/51d09e6ba6f1fb68e23a90a2eb71ff17/a/t/atlanticus_black_001-002-043_alt3_sq_nt_4800x4800.jpg",
-      region: "QATAR",
-      shop_name: "6thstreet",
-      current_price: 100,
-      off_percent: 3,
-    },
-    {
-      id: "2089164",
-      name: 'Twill Column Bridesmaids Dress',
-      image: "https://media.6media.me/media/catalog/product/cache/51d09e6ba6f1fb68e23a90a2eb71ff17/b/c/bcc06950_black_xl.jpg",
-      region: "QATAR",
-      shop_name: "6thstreet",
-      current_price: 100,
-      off_percent: 3,
-    },
-    {
-      id: "2089163",
-      name: 'Test Home',
-      image: "https://media.6media.me/media/catalog/product/cache/51d09e6ba6f1fb68e23a90a2eb71ff17/a/t/atlanticus_black_001-002-043_alt3_sq_nt_4800x4800.jpg",
-      region: "OMAN",
-      shop_name: "6thstreet",
-      current_price: 100,
-      off_percent: 3,
-    }
-  ];
-  getAllProductLocations(): ProductLocation[]{
-    return this.productLocationList
-  }
+  url = 'http://localhost:8000/search';
 
-  getHousingLocationById(id: string): ProductLocation | undefined{
-    return this.productLocationList.find((productLocation) => productLocation.id === id);
+  
+  async getAllProductLocations(): Promise<ProductLocation[]> {
+    const data = await fetch(this.url);
+    return (await data.json()) ?? [];
+  }
+  async getProductLocationById(id: number): Promise<ProductLocation | undefined> {
+    const data = await fetch(`${this.url}/${id}`);
+    return (await data.json()) ?? {};
+  }
+  submitApplication(firstName: string, lastName: string, email: string) {
+    // tslint:disable-next-line
+    console.log(firstName, lastName, email);
   }
 }

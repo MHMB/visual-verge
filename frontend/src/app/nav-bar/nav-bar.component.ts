@@ -24,13 +24,15 @@ import { ProductsService } from '../products.service';
   styleUrls: ['./nav-bar.component.css']
 })
 export class NavBarComponent {
-  readonly baseUrl = 'https://angular.dev/assets/images/tutorials/common';
+
   productLocationList: ProductLocation[] = [];
   productsService: ProductsService = inject(ProductsService);
   filteredProductLocationList: ProductLocation[] = [];
   constructor() {
-    this.productLocationList = this.productsService.getAllProductLocations();
-    this.filteredProductLocationList = this.productLocationList
+    this.productsService.getAllProductLocations().then((productLocationList: ProductLocation[]) => {
+      this.productLocationList = productLocationList;
+      this.filteredProductLocationList = productLocationList;
+    })
   }
   filterResults(text: string) {
     if (!text) {

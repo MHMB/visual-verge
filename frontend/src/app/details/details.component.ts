@@ -32,10 +32,12 @@ import {ProductLocation} from '../product-location';
 })
 export class DetailsComponent {
   route: ActivatedRoute = inject(ActivatedRoute);
-  housingService = inject(ProductsService);
+  productService = inject(ProductsService);
   productLocation: ProductLocation | undefined;
   constructor() {
-    const productLocationId = this.route.snapshot.params['id'];
-    this.productLocation = this.housingService.getHousingLocationById(productLocationId);
+    const productLocationId = parseInt(this.route.snapshot.params['id'], 10);
+    this.productService.getProductLocationById(productLocationId).then((productLocation) => {
+      this.productLocation = productLocation;
+    });
   }
 }

@@ -10,3 +10,9 @@ header {
 .content {
   padding: var(--content-padding);
 }
+
+.brand-logo {
+  width: 200px;
+  height: auto;
+}
+
