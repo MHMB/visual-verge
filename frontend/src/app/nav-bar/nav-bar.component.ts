@@ -28,17 +28,16 @@ export class NavBarComponent {
   productLocationList: ProductLocation[] = [];
   productsService: ProductsService = inject(ProductsService);
   filteredProductLocationList: ProductLocation[] = [];
-  constructor() {
-    this.productsService.getAllProductLocations().then((productLocationList: ProductLocation[]) => {
-      this.productLocationList = productLocationList;
-      this.filteredProductLocationList = productLocationList;
-    })
-  }
+  constructor() {}
   filterResults(text: string) {
     if (!text) {
       this.filteredProductLocationList = this.productLocationList;
       return;
     }
+    this.productsService.searchProducts(text).then((productLocationList: ProductLocation[]) => {
+      this.productLocationList = productLocationList;
+      this.filteredProductLocationList = productLocationList;
+    })
     this.filteredProductLocationList = this.productLocationList.filter(
       (productLocation) => productLocation?.name.toLowerCase().includes(text.toLowerCase())
     );
