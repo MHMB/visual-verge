@@ -6,6 +6,7 @@ from transformers import CLIPProcessor, CLIPModel
 from qdrant_client import QdrantClient
 from qdrant_client.http.models import Filter, FieldCondition, Range, MatchValue, MatchAny
 import torch
+import json
 
 app = FastAPI()
 
@@ -146,9 +147,7 @@ class SemanticSearchService:
     def search(
         self,
         text_query: str,
-        filters: Optional[FilterParams] = None,
-        limit: int = 10,
-        score_threshold: float = 0.5
+        token: str
     ) -> List[SearchResult]:
         """Search for products using text query and optional filters."""
         query_vector = self.encode_text(text_query)
